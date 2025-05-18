@@ -147,3 +147,5 @@ xlrd==2.0.1
 XlsxWriter==3.2.2
 zope.event==5.0
 zope.interface==7.2
+numpy==2.2.1
+ipykernel==6.29.5
