@@ -1,109 +1,143 @@
-# main.py
-from taipy.gui.builder import Gui, Markdown, Dropdown, notify, Toggle, Slider
-import pandas as pd
+import taipy.gui.builder as tgb
 import plotly.express as px
-import json
-from data_processing import (
-    load_course_data,
-    load_geojson,
-    get_organizer_stats,
-    applications_by_field,
-    get_region_summary,
-    melt_students_over_time
+import plotly.graph_objects as go
+from backend.data_processing import (
+    filtered_df,
+    kpi,
+    get_educational_areas,
+    get_municipalities,
+    get_schools,
+    get_educations,
+    apply_filters,
+    df_melted,
+    category_column,
+    map_processing
 )
 
-# === Load data ===
-df_courses = load_course_data("data/inkomna-ansokningar-2024-for-kurser.xlsx")
-df_students = pd.read_csv("data/student/antal_behoriga_sokande_kurser_kon_omrade_alder_2020_2024.csv", encoding="latin1")
-geojson_data = load_geojson("assets/swedish_regions.geojson")
+#df_melted_medel,
+from .charts import (
+    category_column_medel,
+    create_initial_chart_medel,
+    prepare_pie_data_filtered,
+    create_pie_chart_with_title,
+    create_map
+)
 
-organizers = sorted(df_courses["Anordnare namn"].unique())
-education_areas = sorted(df_courses["Sökt utbildningsområde"].unique())
-student_years = [2020, 2021, 2022, 2023, 2024]
+# Initial values and lists
+selected_year_kpi_pie = "2024"
+selected_year_map = "2024"
+years_map = ["2022", "2023", "2024"]
+years_kpi_pie = ["2023", "2024"]
+selected_year_students = "2024"
+selected_year_medel = "2024"
 
-# === State ===
-selected_view = "Applications"
-selected_organizer = organizers[0]
-selected_year = 2024
-selected_area = education_areas[0]
-chart = None
-stats_md = ""
+selected_educational_area = ""
+selected_municipality = ""
+selected_school = ""
+selected_education = ""
 
-view_options = [
-    "Applications",
-    "Students Over Time",
-    "Map View",
-    "Organizer Stats",
-    "Statsbidrag"
-]
+educational_areas = get_educational_areas()
+municipalities = get_municipalities()
+schools = get_schools()
+educations = get_educations()
 
-# === Chart/Markdown logic ===
-def update_view(state):
-    if state.selected_view == "Applications":
-        data = applications_by_field(df_courses)
-        state.chart = px.bar(data, x="Sökt utbildningsområde", y="Sökt antal platser 2024",
-                              title="Total Seats by Education Area")
+# KPIs
+initial_kpi_results = kpi(filtered_df)
+total_applications = initial_kpi_results['total_applications']
+approved_applications = initial_kpi_results['approved_applications']
+rejected_applications = total_applications - approved_applications
+total_approved_places = initial_kpi_results['total_approved_places']
+unique_schools = initial_kpi_results['unique_schools']
+approval_rate = initial_kpi_results['approval_rate']
 
-    elif state.selected_view == "Students Over Time":
-        df_melted = melt_students_over_time(df_students)
-        df_area = df_melted[df_melted["utbildningsområde MYH"] == state.selected_area]
-        df_year = df_area[df_area["År"] == state.selected_year]
-        df_grouped = df_year.groupby("region (hemlän)")["Antal behöriga"].sum().reset_index()
-        fig = px.choropleth(
-            df_grouped,
-            geojson=geojson_data,
-            featureidkey="properties.name",
-            locations="region (hemlän)",
-            color="Antal behöriga",
-            color_continuous_scale="Viridis",
-            title=f"Qualified Students in {state.selected_area} - {state.selected_year}"
-        )
-        fig.update_geos(fitbounds="locations", visible=False)
-        state.chart = fig
+# Charts
+medel_animated_figure = create_initial_chart_medel()
+pie_data, pie_title = prepare_pie_data_filtered(filtered_df)
+pie_figure = create_pie_chart_with_title(pie_data, pie_title)
+map_figure = create_map(selected_year_map)
+from .charts import create_top_20_schools_chart
 
-    elif state.selected_view == "Map View":
-        data = get_region_summary(df_courses)
-        state.chart = px.sunburst(data, path=["Län", "Kommun", "Anordnare namn"],
-                                  values="Sökt antal platser 2024", title="Seats by Region")
+top_20_schools_figure = create_top_20_schools_chart(filtered_df)
 
-    elif state.selected_view == "Organizer Stats":
-        stats = get_organizer_stats(df_courses, state.selected_organizer)
-        lines = [
-            f"### 📊 Organizer: **{stats['name']}**",
-            f"- **Courses:** {stats['courses']}",
-            f"- **Total Seats:** {stats['seats']}",
-            f"- **Avg YH Points:** {stats['average_yh']}",
-            "\n**Fields:**"
-        ] + [f"- {k}: {v}" for k, v in stats['fields'].items()]
-        state.stats_md = "\n".join(lines)
 
-    elif state.selected_view == "Statsbidrag":
-        grouped = df_courses.groupby("Sökt utbildningsområde")["YH-poäng"].sum().reset_index()
-        grouped["Statsbidrag"] = grouped["YH-poäng"] * 7000
-        state.chart = px.bar(grouped, x="Sökt utbildningsområde", y="Statsbidrag",
-                             title="Statsbidrag per Education Area (YH-poäng * 7000)")
+# Page layout with Taipy GUI Builder
+dashboard_page = tgb.Page()
 
-# === Dashboard layout ===
-page = """
-# 🏫 YH Dashboard
+with dashboard_page:
+    with tgb.part(class_name="container-card"):
+        tgb.navbar()
 
-<|dropdown|value=selected_view|lov=view_options|label=Select View|on_change=update_view|>
+        with tgb.part(class_name="title-card"):
+            tgb.text("# MYH Dashboard", mode="md")
 
-<|part|render={selected_view=="Organizer Stats"}|
-<|dropdown|value=selected_organizer|lov=organizers|label=Choose Organizer|on_change=update_view|>
-<|markdown|content=stats_md|>
-|>
+        with tgb.part(class_name="main-container"):
+            # Filters
+            with tgb.part(class_name="left-column"):
+                with tgb.part(class_name="filter-section"):
+                    with tgb.part(class_name="filter-grid"):
+                        with tgb.part(class_name="card"):
+                            tgb.text("# Filter", mode="md")
+                            tgb.selector("{selected_educational_area}", lov="{educational_areas}", label="Välj utbildningsområde", dropdown=True)
+                            tgb.selector("{selected_municipality}", lov="{municipalities}", label="Välj kommun", dropdown=True)
+                            tgb.selector("{selected_school}", lov="{schools}", label="Välj skola", dropdown=True)
+                            tgb.selector("{selected_education}", lov="{educations}", label="Välj utbildning", dropdown=True)
+                            tgb.selector("{selected_year_kpi_pie}", lov="{years_kpi_pie}", label="Välj år:", dropdown=True)
+                            tgb.button("Filtrera", class_name="button-primary")
+                            tgb.button("Rensa alla filter", class_name="button-secondary")
 
-<|part|render={selected_view=="Students Over Time"}|
-<|dropdown|value=selected_area|lov=education_areas|label=Education Area|on_change=update_view|>
-<|slider|value=selected_year|min=2020|max=2024|step=1|label=Year|on_change=update_view|>
-|>
+                with tgb.part(class_name="kpi-section"):
+                    with tgb.part(class_name="filter-grid"):
+                        with tgb.part(class_name="card highlight-card"):
+                            tgb.text("# KPI", mode="md")
+                            tgb.text("**Totalt antal ansökningar:** {total_applications:,}", mode="md", class_name="kpi-value")
+                            tgb.text("**Beviljade ansökningar:** {approved_applications:,} ({approval_rate:.1f}%)", mode="md", class_name="kpi-value")
+                            tgb.text("**Avslagna ansökningar:** {rejected_applications:,}", mode="md", class_name="kpi-value")
+                            tgb.text("**Totalt beviljade platser:** {total_approved_places:,}", mode="md", class_name="kpi-value")
+                            tgb.text("**Antal anordnare:** {unique_schools}", mode="md", class_name="kpi-value")
+                            tgb.text("*Värdena uppdateras baserat på valda filter*", mode="md", class_name="filter-note")
 
-<|part|render={selected_view!="Organizer Stats"}|
-<|chart|figure=chart|>
-|>
-"""
+            # Visualizations
+            with tgb.part(class_name="middle-column"):
+                with tgb.part(class_name="middle-grid"):
+                    with tgb.part(class_name="map-card"):
+                        tgb.text("### Fördelning av beviljade platser", mode="md")
+                        tgb.chart(figure="{pie_figure}")
 
-# === Run app ===
-Gui(page).run()
-            
+                    with tgb.part(class_name="map-card"):
+                        tgb.text("### Geografisk fördelning (2022-2024)", mode="md")
+                        tgb.selector("{selected_year_map}", lov="{years_map}", label="Välj år:", dropdown=True)
+                        tgb.chart(figure="{map_figure}")
+
+            with tgb.part(class_name="right-column"):
+                with tgb.part(class_name="map-card"):
+                    tgb.text("### Studerande per utbildningsområde", mode="md")
+                    tgb.selector("{selected_year_students}", lov="{years_map}", label="Välj år", dropdown=True)
+                    tgb.chart(figure="{bub_animated_figure}")
+
+                with tgb.part(class_name="map-card"):
+                    tgb.text("### Utbetalda statliga medel (miljoner kronor)", mode="md")
+                    tgb.selector("{selected_year_medel}", lov="{years_map}", label="Välj år", dropdown=True)
+                    tgb.chart(figure="{medel_animated_figure}")
+                    with tgb.part(class_name="map-card"):
+                        tgb.text("### Topp 20 skolor efter antal ansökningar", mode="md")
+                        tgb.chart(figure="{top_20_schools_figure}")
+        
+
+
+
+
+
+#Total Number of Applications
+#Approved Applications
+#Rejected Applications
+#Total Approved Places
+
+
+
+#Analyze application rounds for courses
+#Visualize number of students over time by education area
+#Map visualization 
+#Filter by organizer and show stats
+#Filter map between years
+#Visualize trends over time
+#Filter between years

@@ -1,86 +1,148 @@
-body {
-    font-family: "Arial", sans-serif;
-    background-color: #f5f5f5;
+:root {
+    --ratio: 1.5;
+    --s-5: calc(var(--s-4) / var(--ratio));
+    --s-4: calc(var(--s-3) / var(--ratio));
+    --s-3: calc(var(--s-2) / var(--ratio));
+    --s-2: calc(var(--s-1) / var(--ratio));
+    --s-1: calc(var(--s0) / var(--ratio));
+    --s0: 1em;
+    --s1: calc(var(--s0) * var(--ratio));
+    --s2: calc(var(--s1) * var(--ratio));
+    --s3: calc(var(--s2) * var(--ratio));
+    --s4: calc(var(--s3) * var(--ratio));
+    --s5: calc(var(--s4) * var(--ratio));
+  
+    --primaryTextColor: #112c69;
+    --constratColor: #ff806d;
+    --contrastColorBg: #9fc1ea;
+    --cardColor: #fef8f6;
+    --cardBg: #eeeeee;
+    --font: "Arial", sans-serif;
+  }
+  
+  /* === Reset & Base === */
+  body {
+    font-family: var(--font);
+    background-color: var(--cardBg);
+    color: var(--primaryTextColor);
     margin: 0;
     padding: 0;
-}
-
-.container-card {
-    padding: 20px;
-    background-color: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    margin-bottom: 24px;
-}
-
-.title-card {
-    padding-bottom: 16px;
-    border-bottom: 2px solid #e0e0e0;
-}
-
-.main-container {
+    line-height: 1.5;
+  }
+  
+  /* === Container Layout === */
+  .container-card {
+    background-color: var(--cardColor);
+    padding: var(--s1);
+    border-radius: 12px;
+    margin-bottom: var(--s1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .title-card {
+    font-size: var(--s2);
+    margin-bottom: var(--s0);
+    border-bottom: 2px solid var(--contrastColorBg);
+    padding-bottom: var(--s-1);
+  }
+  
+  /* === Columns for layout === */
+  .main-container {
     display: flex;
-    gap: 20px;
+    gap: var(--s1);
     flex-wrap: wrap;
-}
-
-.left-column, .middle-column, .right-column {
+  }
+  
+  .left-column,
+  .middle-column,
+  .right-column {
     flex: 1;
     min-width: 300px;
-}
-
-.card {
-    background-color: #ffffff;
-    border: 1px solid #ddd;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-}
-
-.button-primary {
-    background-color: #007bff;
-    color: #fff;
-    border: none;
+  }
+  
+  /* === Card Components === */
+  .card {
+    background-color: white;
+    border-radius: 10px;
+    padding: var(--s1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: var(--s1);
+  }
+  
+  /* === Buttons === */
+  .button-primary {
+    background-color: var(--primaryTextColor);
+    color: white;
     padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 10px;
-}
-
-.button-secondary {
-    background-color: #6c757d;
-    color: #fff;
     border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
+    border-radius: 8px;
     font-weight: bold;
-    margin-top: 10px;
-}
-
-.kpi-value {
-    font-size: 18px;
-    color: #333;
-    margin-bottom: 6px;
-}
-
-.filter-note {
+    cursor: pointer;
+  }
+  
+  .button-secondary {
+    background-color: var(--constratColor);
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  
+  /* === KPI Text === */
+  .kpi-value {
+    font-size: var(--s1);
+    font-weight: bold;
+    margin-bottom: var(--s-1);
+  }
+  
+  /* === Note Text === */
+  .filter-note {
     font-style: italic;
+    font-size: var(--s-1);
     color: #666;
-    font-size: 12px;
-    margin-top: 6px;
-}
-
-.bubble-chart-container, .medel-chart-container, .map-card {
-    padding: 12px;
-    background-color: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.chart-area {
+  }
+  
+  /* === Chart Containers === */
+  .chart-area {
     width: 100%;
     overflow-x: auto;
-    padding: 8px 0;
-}
+    padding: var(--s0) 0;
+  }
+  
+  .bubble-chart-container,
+  .medel-chart-container,
+  .map-card {
+    background-color: white;
+    padding: var(--s1);
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+    margin-bottom: var(--s1);
+  }
+  
+  /* === Table === */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  th,
+  td {
+    padding: var(--s-1);
+    border: 1px solid #ccc;
+  }
+  
+  th {
+    background-color: var(--contrastColorBg);
+  }
+  
+  /* === Responsive Adjustments === */
+  @media (max-width: 768px) {
+    .main-container {
+      flex-direction: column;
+    }
+  }
+source venv/bin/activate
+python main.py
+  
