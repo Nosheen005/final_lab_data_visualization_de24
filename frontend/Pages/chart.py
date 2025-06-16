@@ -4,6 +4,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 from difflib import get_close_matches
 
+from backend.data_processing import df_combined, df_regions, region_geojson
+geojson_data = region_geojson
+
+
+
+category_column_medel = "Sökt utbildningsområde"  # or whatever your correct column name is
+
+
 
 def application_by_field_chart(df: pd.DataFrame):
     """Bar chart: Total seats by education area."""
@@ -110,9 +118,10 @@ def empty_figure():
     """Returns an empty Plotly figure."""
     return go.Figure()
 
-import plotly.express as px
 
 # added newly
+from backend.data_processing import get_top_20_schools_by_applications
+
 
 def create_top_20_schools_chart(df):
     top_schools_df = get_top_20_schools_by_applications(df)
@@ -125,3 +134,159 @@ def create_top_20_schools_chart(df):
     )
     fig.update_layout(yaxis={'categoryorder':'total ascending'})
     return fig
+
+# fixed 
+def plot_statsbidrag_over_time(df_combined):
+    df_grouped = df_combined.groupby("År")["Statsbidrag"].sum().reset_index()
+    df_grouped["Statsbidrag"] = df_grouped["Statsbidrag"] / 1_000_000  # millions
+    fig = px.bar(
+        df_grouped,
+        x="År", y="Statsbidrag",
+        title="Utbetalda statliga medel per år (miljoner kronor)",
+        labels={"Statsbidrag": "Miljoner kronor", "År": "År"}
+    )
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+#-----------
+
+def prepare_pie_data_filtered(df):
+    df_grouped = df.groupby("Sökt utbildningsområde")["Sökt antal platser 2024 (start och avslut 2024)"].sum().reset_index()
+    df_grouped = df_grouped[df_grouped["Sökt antal platser 2024 (start och avslut 2024)"] > 0]
+    title = "Beviljade platser per utbildningsområde"
+    return df_grouped, title
+
+
+
+def create_bub_animated_chart(df, selected_year):
+    filtered = df[df["År"] == int(selected_year)]
+    grouped = filtered.groupby("utbildningsområde MYH")["Antal behöriga"].sum().reset_index()
+
+    fig = px.bar(
+        grouped.sort_values("Antal behöriga", ascending=True),
+        x="Antal behöriga",
+        y="utbildningsområde MYH",
+        orientation="h",
+        color="Antal behöriga",
+        color_continuous_scale=[[0, 'rgb(0,50,25)'], [1, 'rgb(0,100,50)']],
+        title=f"Studerande per utbildningsområde ({selected_year})",
+        labels={"Antal behöriga": "Antal studerande", "utbildningsområde MYH": "Utbildningsområde"}
+    )
+
+    fig.update_layout(showlegend=False, height=600)
+    return fig
+
+
+
+
+
+def create_pie_chart_with_title(df, title):
+    fig = px.pie(
+        df,
+        values="Sökt antal platser 2024 (start och avslut 2024)",
+        names="Sökt utbildningsområde",
+        title=title
+    )
+    return fig
+
+
+
+#Map
+
+def plot_beviljade_by_year(df_combined):
+    df_grouped = df_combined.groupby("År", as_index=False)["Beviljade"].sum()
+    fig = px.bar(
+        df_grouped,
+        x="År", y="Beviljade",
+        title="Totalt antal beviljade platser per år",
+        labels={"Beviljade": "Antal platser", "År": "År"}
+    )
+    fig.update_layout(bargap=0.2, margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+
+def plot_beviljade_by_region(df_regions, geojson_data, year):
+    df_year = df_regions[df_regions["År"] == year].copy()
+    df_year = df_year.dropna(subset=["Länskod"])
+    df_year["Länskod"] = df_year["Länskod"].astype(str)
+
+    fig = px.choropleth(
+        df_year,
+        geojson=geojson_data,
+        locations="Länskod",
+        featureidkey="properties.ref:se:länskod",
+        color="Beviljade",
+        hover_name="Län",
+        color_continuous_scale="Blues",
+        title=f"Beviljade platser per region ({year})"
+    )
+    fig.update_geos(fitbounds="locations", visible=False)
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+
+def plot_statsbidrag_by_region(df_regions, geojson_data, year):
+    df_year = df_regions[df_regions["År"] == year].copy()
+    df_year = df_year.dropna(subset=["Länskod"])
+    df_year["Länskod"] = df_year["Länskod"].astype(str)
+
+    fig = px.choropleth(
+        df_year,
+        geojson=geojson_data,
+        locations="Länskod",
+        featureidkey="properties.ref:se:länskod",
+        color="Statsbidrag",
+        hover_name="Län",
+        color_continuous_scale="Viridis",
+        title=f"Statsbidrag per region ({year})"
+    )
+    fig.update_geos(fitbounds="locations", visible=False)
+    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+    return fig
+
+def plot_beviljade_by_anordnare(df_combined, top_n=10):
+    df_top = (
+        df_combined.groupby("Anordnare")["Beviljade"]
+        .sum()
+        .sort_values(ascending=False)
+        .head(top_n)
+        .reset_index()
+    )
+    fig = px.bar(
+        df_top,
+        x="Beviljade", y="Anordnare",
+        orientation="h",
+        title=f"Topp {top_n} utbildningsanordnare (antal beviljade platser)",
+        labels={"Beviljade": "Antal platser", "Anordnare": "Utbildningsanordnare"}
+    )
+    fig.update_layout(yaxis=dict(autorange="reversed"))
+    return fig
+
+
+# trend_applications_over_time
+
+# === Application Trend Line Chart ===
+df = pd.read_csv("data/processed_applications.csv")
+
+# Extract dropdown options
+genders = df["Kön"].dropna().unique().tolist()
+areas = df["Utbildningsområde"].dropna().unique().tolist()
+
+
+# Load the processed applications data
+df_trends = pd.read_csv("data/processed_applications.csv")
+
+def plot_application_trends():
+    fig = px.line(
+        df_trends,
+        x="År",
+        y="Antal ansökningar",
+        color="Utbildningsområde",
+        line_dash="Kön",
+        title="Ansökningstrender per utbildningsområde (2020–2024)",
+        labels={"År": "År", "Antal ansökningar": "Antal ansökningar"}
+    )
+    fig.update_layout(xaxis=dict(dtick=1))
+    return fig
+
+# Create a static figure (used in dashboard.py)
+application_trend_figure = plot_application_trends()
